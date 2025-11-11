@@ -25,14 +25,7 @@ pipeline {
         '''
       }
     }
-
-    stage('Build') {
-      steps {
-        // Run your React build (for Vite or CRA)
-        sh 'npm run build'
-      }
-    }
-
+    
     stage('Archive') {
       steps {
         archiveArtifacts artifacts: '**/dist/**, **/build/**', allowEmptyArchive: true
