@@ -3,16 +3,26 @@ pipeline {
 
   stages {
     stage('Checkout') {
+      steps { checkout scm }
+    }
+
+    stage('Install') {
       steps {
-        // Checkout your repo
-        git branch: 'main', url: 'https://github.com/Neversettle986/jenkins-project.git'
+        // Ensure NODE_ENV is not "production" while installing
+        withEnv(["NODE_ENV=development"]) {
+          echo "Installing (including devDependencies)..."
+          bat 'npm ci'
+        }
       }
     }
 
-    stage('Install dependencies') {
+    stage('Build') {
       steps {
-        // Install node modules
-        sh 'npm ci'
+        echo "Running build (using npx if needed)..."
+        // prefer npm script; use npx fallback in case directly calling vite fails
+        bat '''
+          npm run build || npx vite build
+        '''
       }
     }
 
@@ -23,20 +33,19 @@ pipeline {
       }
     }
 
-    stage('Archive build output') {
+    stage('Archive') {
       steps {
-        // Adjust folder depending on your setup:
-        //   - For Vite → dist/
-        //   - For Create React App → build/
-        archiveArtifacts artifacts: 'dist/**/*', fingerprint: true
+        archiveArtifacts artifacts: '**/dist/**, **/build/**', allowEmptyArchive: true
       }
+    }
+
+    stage('Clean') {
+      steps { cleanWs() }
     }
   }
 
   post {
-    success {
-      // This adds a "Build Artifacts" link in Jenkins UI
-      echo "✅ Build complete. Check the 'Artifacts' section for your React build."
-    }
+    success { echo 'Build succeeded' }
+    failure { echo 'Build failed' }
   }
 }
