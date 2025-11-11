@@ -1,53 +1,39 @@
 pipeline {
   agent any
 
-  environment {
-    // customize if needed
-    NODE_ENV = "production"
-  }
-
   stages {
     stage('Checkout') {
-      steps {
-        checkout scm
-      }
+      steps { checkout scm }
     }
 
     stage('Install') {
-      when {
-        expression { fileExists('package.json') }
-      }
       steps {
-        echo "Installing dependencies..."
-        // sh 'npm ci'         // on Linux/macOS agents
-        bat 'npm ci'     // use this on Windows agents
+        // Ensure NODE_ENV is not "production" while installing
+        withEnv(["NODE_ENV=development"]) {
+          echo "Installing (including devDependencies)..."
+          bat 'npm ci'
+        }
       }
     }
 
     stage('Build') {
-      when {
-        anyOf {
-          expression { fileExists('package.json') && readFile('package.json').contains('"build"') }
-          expression { fileExists('Makefile') }
-        }
-      }
       steps {
-        echo "Running build..."
-        // sh 'npm run build'   // adjust for your project
-        bat 'npm run build' // windows agent
+        echo "Running build (using npx if needed)..."
+        // prefer npm script; use npx fallback in case directly calling vite fails
+        bat '''
+          npm run build || npx vite build
+        '''
       }
     }
 
     stage('Archive') {
       steps {
-        archiveArtifacts artifacts: '**/dist/**, **/build/**, **/*.war, **/*.jar', allowEmptyArchive: true
+        archiveArtifacts artifacts: '**/dist/**, **/build/**', allowEmptyArchive: true
       }
     }
 
     stage('Clean') {
-      steps {
-        cleanWs()
-      }
+      steps { cleanWs() }
     }
   }
 
